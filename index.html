@@ -72,6 +72,11 @@
             font-weight: 700;
             font-variant-numeric: tabular-nums;
             color: var(--text-color);
+            transition: color 0.3s ease;
+        }
+
+        .working-timer-value.overtime {
+            color: var(--accent-break);
         }
 
         .start-btn {
@@ -192,6 +197,17 @@
             background: var(--yamato-yellow-dark);
         }
 
+        /* --- Hidden Reset Trigger --- */
+        .hidden-reset-trigger {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 60px;
+            height: 60px;
+            z-index: 9999;
+            background: transparent;
+        }
+
         /* --- Break View --- */
         #breakOverlay {
             display: none;
@@ -247,6 +263,72 @@
             font-weight: 700;
             font-variant-numeric: tabular-nums;
             color: #000;
+            transition: color 0.3s ease;
+        }
+
+        /* --- Steam Effect --- */
+        .steam-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .steam-particle {
+            position: absolute;
+            bottom: -150px;
+            background: rgba(200, 200, 200, 0.1);
+            border-radius: 50%;
+            filter: blur(40px);
+            animation: rise-animation 10s infinite ease-in;
+        }
+
+        @keyframes rise-animation {
+            0% {
+                transform: translateY(0) scale(1) translateX(0);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 0.4;
+            }
+
+            50% {
+                transform: translateY(-50vh) scale(2) translateX(20px);
+                opacity: 0.3;
+            }
+
+            100% {
+                transform: translateY(-110vh) scale(3) translateX(-20px);
+                opacity: 0;
+            }
+        }
+
+        .break-timer-value.overtime {
+            color: var(--accent-break);
+        }
+
+        .overtime-msg {
+            display: none;
+            color: var(--accent-break);
+            font-size: 1.2rem;
+            font-weight: 800;
+            margin-top: 10px;
+            animation: flash 1s infinite alternate;
+        }
+
+        @keyframes flash {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0.4;
+            }
         }
 
         .break-history-section {
@@ -316,6 +398,7 @@
 
 <body>
     <div id="workingView">
+        <div class="hidden-reset-trigger" id="hiddenResetTrigger"></div>
         <div class="main-action-area" id="timerArea">
             <div class="working-timer-group">
                 <div class="working-timer-label">残り休憩時間</div>
@@ -336,9 +419,22 @@
     </div>
 
     <div id="breakOverlay">
-        <div class="break-status-text">休憩中</div>
-        <div class="break-timer-container">
+        <div class="steam-container">
+            <div class="steam-particle"
+                style="left: 10%; width: 200px; height: 200px; animation-delay: 0s; animation-duration: 8s;"></div>
+            <div class="steam-particle"
+                style="left: 30%; width: 250px; height: 250px; animation-delay: 2s; animation-duration: 12s;"></div>
+            <div class="steam-particle"
+                style="left: 50%; width: 150px; height: 150px; animation-delay: 4s; animation-duration: 9s;"></div>
+            <div class="steam-particle"
+                style="left: 70%; width: 220px; height: 220px; animation-delay: 1s; animation-duration: 11s;"></div>
+            <div class="steam-particle"
+                style="left: 90%; width: 180px; height: 180px; animation-delay: 5s; animation-duration: 13s;"></div>
+        </div>
+        <div class="break-status-text" style="position: relative; z-index: 10;">休憩中</div>
+        <div class="break-timer-container" style="position: relative; z-index: 10;">
             <div id="breakTimer" class="break-timer-value">60:00</div>
+            <div id="overtimeMsg" class="overtime-msg">早く業務に戻りましょう！</div>
         </div>
         <div class="break-history-section" id="breakHistorySection">
             <div class="break-history-title" onclick="toggleBreakHistory()">本日の履歴</div>
@@ -369,6 +465,7 @@
         const startBtn = document.getElementById('startBtn');
         const emailBtn = document.getElementById('emailBtn');
         const csvBtn = document.getElementById('csvBtn');
+        const hiddenResetTrigger = document.getElementById('hiddenResetTrigger');
 
         function init() {
             loadState();
@@ -429,13 +526,7 @@
             if (state.isBreak) {
                 const sessionElapsed = now - state.lastBreakStartTimestamp;
                 const currentRemaining = state.remainingMs - sessionElapsed;
-                if (currentRemaining <= 0) {
-                    endBreak();
-                    state.remainingMs = 0;
-                    updateAllTimerDisplays(0);
-                } else {
-                    updateAllTimerDisplays(currentRemaining);
-                }
+                updateAllTimerDisplays(currentRemaining);
             }
             requestAnimationFrame(tick);
         }
@@ -447,7 +538,6 @@
         });
 
         function startBreak() {
-            if (state.remainingMs <= 0) { alert("休憩時間を使い切りました"); return; }
             state.isBreak = true;
             state.lastBreakStartTimestamp = Date.now();
             saveState();
@@ -458,7 +548,7 @@
             if (!state.isBreak) return;
             const now = Date.now();
             const sessionElapsed = now - state.lastBreakStartTimestamp;
-            state.remainingMs = Math.max(0, state.remainingMs - sessionElapsed);
+            state.remainingMs = state.remainingMs - sessionElapsed;
             const start = new Date(state.lastBreakStartTimestamp);
             const end = new Date(now);
             const item = {
@@ -501,13 +591,26 @@
             const str = formatTimer(ms);
             breakTimer.innerText = str;
             workTimerDisplay.innerText = str;
+
+            const overtimeMsg = document.getElementById('overtimeMsg');
+            if (ms < 0) {
+                breakTimer.classList.add('overtime');
+                workTimerDisplay.classList.add('overtime');
+                overtimeMsg.style.display = 'block';
+            } else {
+                breakTimer.classList.remove('overtime');
+                workTimerDisplay.classList.remove('overtime');
+                overtimeMsg.style.display = 'none';
+            }
         }
 
         function formatTimer(ms) {
-            const totalSeconds = Math.ceil(ms / 1000);
-            return `${pad(Math.floor(totalSeconds / 60))}:${pad(totalSeconds % 60)}`;
+            const isNegative = ms < 0;
+            const totalSeconds = Math.ceil(Math.abs(ms) / 1000);
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            return (isNegative ? "-" : "") + `${pad(m)}:${pad(s)}`;
         }
-
         function pad(n) { return n < 10 ? '0' + n : n; }
         function formatTime(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
         function formatDuration(ms) {
@@ -546,6 +649,28 @@
         csvBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             downloadCSV();
+        });
+
+        // 隠しリセット：トリプルタップ（3回連続クリック）判定
+        let clickCount = 0;
+        let lastClickTime = 0;
+        hiddenResetTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const now = Date.now();
+            if (now - lastClickTime < 500) {
+                clickCount++;
+            } else {
+                clickCount = 1;
+            }
+            lastClickTime = now;
+
+            if (clickCount >= 3) {
+                if (confirm("【隠し機能】本日の全てのデータ（残り時間と履歴）を完全にリセットしてもよろしいですか？")) {
+                    resetToNewDay(new Date().toDateString());
+                    alert("全てのデータをリセットしました。");
+                }
+                clickCount = 0;
+            }
         });
 
         function downloadCSV() {
