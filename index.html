@@ -496,6 +496,30 @@
             color: #ddd;
             font-size: 0.9rem;
         }
+
+        /* --- Landscape Orientation Adjustments --- */
+        @media (orientation: landscape) {
+            #breakOverlay {
+                justify-content: flex-start;
+                /* 上寄せ目にしてpaddingで調整 */
+                padding-top: 10vh;
+                /* 文字を少し下げる */
+            }
+
+            .break-status-text {
+                font-size: 40vh;
+                /* 高さ基準で調整（横に広がりすぎないように） */
+                margin-bottom: 5px;
+            }
+
+            .break-timer-container {
+                margin-bottom: 20px;
+            }
+
+            .break-history-section {
+                bottom: 20px;
+            }
+        }
     </style>
 </head>
 
