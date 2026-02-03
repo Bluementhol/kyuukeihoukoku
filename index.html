@@ -819,9 +819,9 @@
 
         emailBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            let body = "本日の休憩履歴:\n\n";
+            let body = "お疲れ様です。本日の休憩取得状況をご報告いたします。\n\n本日の休憩履歴:";
             state.history.forEach(h => { body += `${h.startStr} - ${h.endStr} (${h.durationStr})\n`; });
-            body += `\n合計休憩時間: ${formatDuration(MAX_TIME_MS - state.remainingMs)}`;
+            body += `\n合計休憩時間: ${formatDuration(MAX_TIME_MS - state.remainingMs)}\n\n"明日もよろしくお願いします。"`;
             window.location.href = `mailto:?subject=休憩取得状況報告&body=${encodeURIComponent(body)}`;
         });
 
@@ -873,5 +873,6 @@
         document.body.addEventListener('touchstart', function () { }, false);
     </script>
 </body>
+
 
 </html>
