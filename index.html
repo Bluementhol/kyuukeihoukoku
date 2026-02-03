@@ -219,19 +219,24 @@
             background-color: #ffffff;
             z-index: 1000;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: center;
+            /* 中央に配置 */
             align-items: center;
-            padding-top: 80px;
             box-sizing: border-box;
             color: #000;
         }
 
         .break-status-text {
-            font-size: 5.5rem;
+            font-size: 22vw;
+            /* 画面幅に合わせて伸縮 */
             font-weight: 800;
             color: var(--accent-break);
             margin-bottom: 20px;
+            line-height: 1.1;
+            white-space: nowrap;
+            /* 改行を防止 */
             animation: pulse-animation 2s infinite ease-in-out;
+            text-align: center;
         }
 
         @keyframes pulse-animation {
