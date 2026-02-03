@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>休憩管理</title>
+    <style>
+        :root {
+            --yamato-green: #00693E;
+            --yamato-green-dark: #004d2e;
+            --yamato-green-light: #008F52;
+            --yamato-yellow: #FFD900;
+            --yamato-yellow-dark: #E6C300;
+            --yamato-yellow-light: #FFED4E;
+            --bg-color: #ffffff;
+            --container-bg: #f5f5f5;
+            --text-color: #000000;
+            --secondary-text: #666666;
+            --accent-work: #FFD900;
+            --accent-break: #ff3b30;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* --- Working View --- */
+        #workingView {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+        .main-action-area {
+            flex: 0 0 55%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-color);
+            gap: 20px;
+        }
+
+        .working-timer-group {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .working-timer-label {
+            color: var(--secondary-text);
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .working-timer-value {
+            font-size: 3.5rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-color);
+        }
+
+        .start-btn {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            border: 4px solid var(--yamato-yellow);
+            background: linear-gradient(135deg, var(--yamato-green), var(--yamato-green-light));
+            color: var(--yamato-yellow);
+            font-size: 1.6rem;
+            font-weight: bold;
+            box-shadow: 0 10px 30px rgba(0, 105, 62, 0.4);
+            cursor: pointer;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s, box-shadow 0.3s;
+        }
+
+        .start-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 5px 20px rgba(0, 105, 62, 0.5);
+        }
+
+        .data-area {
+            flex: 1;
+            background-color: var(--container-bg);
+            border-top-left-radius: 24px;
+            border-top-right-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-top: 2px solid var(--yamato-green);
+        }
+
+        .history-title {
+            font-size: 0.8rem;
+            color: var(--secondary-text);
+            margin-bottom: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .history-list-container {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.95rem;
+        }
+
+        .footer-action {
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .action-btn {
+            flex: 1;
+            background: var(--yamato-yellow);
+            border: 1px solid var(--yamato-yellow-dark);
+            color: var(--yamato-green);
+            padding: 14px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.2s;
+        }
+
+        .action-btn:active {
+            background: var(--yamato-yellow-dark);
+        }
+
+        /* --- Break View --- */
+        #breakOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            z-index: 1000;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            padding-top: 80px;
+            box-sizing: border-box;
+            color: #000;
+        }
+
+        .break-status-text {
+            font-size: 5.5rem;
+            font-weight: 800;
+            color: var(--accent-break);
+            margin-bottom: 20px;
+            animation: pulse-animation 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-animation {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .break-timer-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 60px;
+        }
+
+        .break-timer-value {
+            font-size: 3.5rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #000;
+        }
+
+        .break-history-section {
+            width: 100%;
+            flex: 1;
+            padding: 0 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .break-history-title {
+            font-size: 0.85rem;
+            color: #ccc;
+            margin-bottom: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .break-history-list-container {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+        }
+
+        .break-history-list .history-item {
+            color: #333;
+            border-bottom: 1px solid #f2f2f2;
+        }
+
+        .tap-hint {
+            padding: 40px 0;
+            width: 100%;
+            text-align: center;
+            color: #ddd;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="workingView">
+        <div class="main-action-area">
+            <div class="working-timer-group">
+                <div class="working-timer-label">残り休憩時間</div>
+                <div id="workTimerDisplay" class="working-timer-value">60:00</div>
+            </div>
+            <button id="startBtn" class="start-btn">休憩開始</button>
+        </div>
+        <div class="data-area">
+            <div class="history-title">本日の履歴</div>
+            <div class="history-list-container">
+                <ul id="workingHistoryList" class="history-list"></ul>
+            </div>
+            <div class="footer-action">
+                <button id="csvBtn" class="action-btn">CSV出力</button>
+                <button id="emailBtn" class="action-btn">業務終了送信</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="breakOverlay">
+        <div class="break-status-text">休憩中</div>
+        <div class="break-timer-container">
+            <div id="breakTimer" class="break-timer-value">60:00</div>
+        </div>
+        <div class="break-history-section">
+            <div class="break-history-title">本日の履歴</div>
+            <div class="break-history-list-container">
+                <ul id="breakHistoryList" class="history-list break-history-list"></ul>
+            </div>
+        </div>
+        <div class="tap-hint">画面をタップして業務に戻る</div>
+    </div>
+
+    <script>
+        const MAX_TIME_MS = 60 * 60 * 1000;
+
+        let state = {
+            remainingMs: MAX_TIME_MS,
+            isBreak: false,
+            lastBreakStartTimestamp: null,
+            history: [],
+            lastCheckedDate: "" // 日付またぎ判定用
+        };
+
+        const workingView = document.getElementById('workingView');
+        const breakOverlay = document.getElementById('breakOverlay');
+        const breakTimer = document.getElementById('breakTimer');
+        const workTimerDisplay = document.getElementById('workTimerDisplay');
+        const workingHistoryList = document.getElementById('workingHistoryList');
+        const breakHistoryList = document.getElementById('breakHistoryList');
+        const startBtn = document.getElementById('startBtn');
+        const emailBtn = document.getElementById('emailBtn');
+        const csvBtn = document.getElementById('csvBtn');
+
+        function init() {
+            loadState();
+            checkDateRollover(); // 初期化時に日付チェック
+
+            if (state.isBreak) showBreakMode();
+            else showWorkingMode();
+
+            updateAllTimerDisplays(state.remainingMs);
+            renderHistory();
+            requestAnimationFrame(tick);
+        }
+
+        function checkDateRollover() {
+            const today = new Date().toDateString();
+            if (state.lastCheckedDate && state.lastCheckedDate !== today) {
+                // 日付が変わった場合
+                if (state.isBreak) {
+                    endBreak(); // 休憩中なら強制終了させて前日の履歴にする
+                }
+                resetToNewDay(today);
+            } else {
+                state.lastCheckedDate = today;
+                saveState();
+            }
+        }
+
+        function resetToNewDay(newDate) {
+            state = {
+                remainingMs: MAX_TIME_MS,
+                isBreak: false,
+                lastBreakStartTimestamp: null,
+                history: [],
+                lastCheckedDate: newDate
+            };
+            saveState();
+            updateAllTimerDisplays(state.remainingMs);
+            renderHistory();
+            showWorkingMode();
+        }
+
+        let lastSecond = 0;
+        function tick() {
+            const now = Date.now();
+
+            // 毎秒一回日付チェックを行う
+            if (now - lastSecond > 1000) {
+                checkDateRollover();
+                lastSecond = now;
+            }
+
+            if (state.isBreak) {
+                const sessionElapsed = now - state.lastBreakStartTimestamp;
+                const currentRemaining = state.remainingMs - sessionElapsed;
+
+                if (currentRemaining <= 0) {
+                    endBreak();
+                    state.remainingMs = 0;
+                    updateAllTimerDisplays(0);
+                } else {
+                    updateAllTimerDisplays(currentRemaining);
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        startBtn.addEventListener('click', startBreak);
+        breakOverlay.addEventListener('click', endBreak);
+        document.querySelectorAll('.break-history-list-container, .history-list-container').forEach(el => {
+            el.addEventListener('click', (e) => e.stopPropagation());
+        });
+
+        function startBreak() {
+            if (state.remainingMs <= 0) {
+                alert("休憩時間を使い切りました");
+                return;
+            }
+            state.isBreak = true;
+            state.lastBreakStartTimestamp = Date.now();
+            saveState();
+            showBreakMode();
+        }
+
+        function endBreak() {
+            if (!state.isBreak) return;
+            const now = Date.now();
+            const sessionElapsed = now - state.lastBreakStartTimestamp;
+            state.remainingMs = Math.max(0, state.remainingMs - sessionElapsed);
+
+            const start = new Date(state.lastBreakStartTimestamp);
+            const end = new Date(now);
+            const item = {
+                startStr: formatTime(start),
+                endStr: formatTime(end),
+                durationStr: formatDuration(sessionElapsed)
+            };
+
+            state.history.push(item);
+            state.isBreak = false;
+            state.lastBreakStartTimestamp = null;
+            saveState();
+
+            updateAllTimerDisplays(state.remainingMs);
+            showWorkingMode();
+            renderHistory();
+        }
+
+        function showBreakMode() {
+            workingView.style.display = 'none';
+            breakOverlay.style.display = 'flex';
+        }
+
+        function showWorkingMode() {
+            workingView.style.display = 'flex';
+            breakOverlay.style.display = 'none';
+        }
+
+        function updateAllTimerDisplays(ms) {
+            const str = formatTimer(ms);
+            breakTimer.innerText = str;
+            workTimerDisplay.innerText = str;
+        }
+
+        function formatTimer(ms) {
+            const totalSeconds = Math.ceil(ms / 1000);
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            return `${pad(m)}:${pad(s)}`;
+        }
+
+        function pad(n) { return n < 10 ? '0' + n : n; }
+        function formatTime(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+        function formatDuration(ms) {
+            const sec = Math.floor(ms / 1000);
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return `${m}分${s}秒`;
+        }
+
+        function renderHistory() {
+            const html = state.history.map(h => `
+                <li class="history-item">
+                    <span>${h.startStr} - ${h.endStr}</span><span>${h.durationStr}</span>
+                </li>
+            `).join('');
+            workingHistoryList.innerHTML = html;
+            breakHistoryList.innerHTML = html;
+        }
+
+        function saveState() {
+            localStorage.setItem('breakApp_final', JSON.stringify(state));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('breakApp_final');
+            if (saved) {
+                state = JSON.parse(saved);
+            } else {
+                state.lastCheckedDate = new Date().toDateString();
+            }
+        }
+
+        emailBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            let body = "本日の休憩履歴:\n\n";
+            state.history.forEach(h => { body += `${h.startStr} - ${h.endStr} (${h.durationStr})\n`; });
+            body += `\n合計休憩時間: ${formatDuration(MAX_TIME_MS - state.remainingMs)}`;
+            window.location.href = `mailto:?subject=業務終了報告&body=${encodeURIComponent(body)}`;
+        });
+
+        csvBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            downloadCSV();
+        });
+
+        function downloadCSV() {
+            if (state.history.length === 0) { alert("履歴がありません"); return; }
+            let csvContent = "開始時刻,終了時刻,経過時間\n";
+            state.history.forEach(h => { csvContent += `${h.startStr},${h.endStr},${h.durationStr}\n`; });
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+            const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+            link.setAttribute('download', `休憩実績_${dateStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        init();
+        document.body.addEventListener('touchstart', function () { }, false);
+    </script>
+</body>
+
+</html>
