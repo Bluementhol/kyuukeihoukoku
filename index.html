@@ -45,13 +45,14 @@
         }
 
         .main-action-area {
-            flex: 0 0 55%;
+            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             background-color: var(--bg-color);
             gap: 20px;
+            transition: all 0.3s ease;
         }
 
         .working-timer-group {
@@ -94,16 +95,17 @@
             box-shadow: 0 5px 20px rgba(0, 105, 62, 0.5);
         }
 
-        .data-area {
-            flex: 1;
+        /* --- Bottom Tray (History & Footer) --- */
+        .bottom-tray {
             background-color: var(--container-bg);
             border-top-left-radius: 24px;
             border-top-right-radius: 24px;
             padding: 24px;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
             border-top: 2px solid var(--yamato-green);
+            box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.05);
+            max-height: 80vh;
         }
 
         .history-title {
@@ -112,12 +114,39 @@
             margin-bottom: 12px;
             font-weight: 600;
             text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            -webkit-tap-highlight-color: transparent;
+            padding: 5px 0;
+        }
+
+        .history-title::after {
+            content: '▲';
+            font-size: 0.6rem;
+            color: var(--yamato-green);
+            transition: transform 0.3s;
+        }
+
+        .collapsed .history-title::after {
+            content: '▼';
         }
 
         .history-list-container {
             flex: 1;
             overflow-y: auto;
+            max-height: 40vh;
+            /* Expands to this size */
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
             -webkit-overflow-scrolling: touch;
+        }
+
+        .collapsed .history-list-container {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            margin-bottom: 0;
         }
 
         .history-list {
@@ -132,6 +161,7 @@
             padding: 14px 0;
             border-bottom: 1px solid #e0e0e0;
             font-size: 0.95rem;
+            color: var(--text-color);
         }
 
         .footer-action {
@@ -221,12 +251,13 @@
 
         .break-history-section {
             width: 100%;
-            flex: 1;
-            padding: 0 40px;
-            box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            padding: 0 40px;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+            position: absolute;
+            bottom: 40px;
         }
 
         .break-history-title {
@@ -235,13 +266,37 @@
             margin-bottom: 12px;
             font-weight: 600;
             text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .break-history-title::after {
+            content: '▲';
+            font-size: 0.6rem;
+            color: #ddd;
+            transition: transform 0.3s;
+        }
+
+        .break-history-collapsed .break-history-title::after {
+            content: '▼';
         }
 
         .break-history-list-container {
             flex: 1;
             overflow-y: auto;
+            max-height: 30vh;
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
             -webkit-overflow-scrolling: touch;
             touch-action: pan-y;
+        }
+
+        .break-history-collapsed .break-history-list-container {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
         }
 
         .break-history-list .history-item {
@@ -261,15 +316,15 @@
 
 <body>
     <div id="workingView">
-        <div class="main-action-area">
+        <div class="main-action-area" id="timerArea">
             <div class="working-timer-group">
                 <div class="working-timer-label">残り休憩時間</div>
                 <div id="workTimerDisplay" class="working-timer-value">60:00</div>
             </div>
             <button id="startBtn" class="start-btn">休憩開始</button>
         </div>
-        <div class="data-area">
-            <div class="history-title">本日の履歴</div>
+        <div class="bottom-tray" id="bottomTray">
+            <div class="history-title" onclick="toggleHistory()">本日の履歴</div>
             <div class="history-list-container">
                 <ul id="workingHistoryList" class="history-list"></ul>
             </div>
@@ -285,8 +340,8 @@
         <div class="break-timer-container">
             <div id="breakTimer" class="break-timer-value">60:00</div>
         </div>
-        <div class="break-history-section">
-            <div class="break-history-title">本日の履歴</div>
+        <div class="break-history-section" id="breakHistorySection">
+            <div class="break-history-title" onclick="toggleBreakHistory()">本日の履歴</div>
             <div class="break-history-list-container">
                 <ul id="breakHistoryList" class="history-list break-history-list"></ul>
             </div>
@@ -302,7 +357,7 @@
             isBreak: false,
             lastBreakStartTimestamp: null,
             history: [],
-            lastCheckedDate: "" // 日付またぎ判定用
+            lastCheckedDate: ""
         };
 
         const workingView = document.getElementById('workingView');
@@ -317,7 +372,19 @@
 
         function init() {
             loadState();
-            checkDateRollover(); // 初期化時に日付チェック
+            checkDateRollover();
+
+            // 履歴の開閉状態を復元 (メイン)
+            const isCollapsed = localStorage.getItem('history_collapsed') !== 'false';
+            if (isCollapsed) {
+                document.getElementById('bottomTray').classList.add('collapsed');
+            }
+
+            // 履歴の開閉状態を復元 (休憩中)
+            const isBreakCollapsed = localStorage.getItem('break_history_collapsed') !== 'false';
+            if (isBreakCollapsed) {
+                document.getElementById('breakHistorySection').classList.add('break-history-collapsed');
+            }
 
             if (state.isBreak) showBreakMode();
             else showWorkingMode();
@@ -330,10 +397,7 @@
         function checkDateRollover() {
             const today = new Date().toDateString();
             if (state.lastCheckedDate && state.lastCheckedDate !== today) {
-                // 日付が変わった場合
-                if (state.isBreak) {
-                    endBreak(); // 休憩中なら強制終了させて前日の履歴にする
-                }
+                if (state.isBreak) endBreak();
                 resetToNewDay(today);
             } else {
                 state.lastCheckedDate = today;
@@ -358,17 +422,13 @@
         let lastSecond = 0;
         function tick() {
             const now = Date.now();
-
-            // 毎秒一回日付チェックを行う
             if (now - lastSecond > 1000) {
                 checkDateRollover();
                 lastSecond = now;
             }
-
             if (state.isBreak) {
                 const sessionElapsed = now - state.lastBreakStartTimestamp;
                 const currentRemaining = state.remainingMs - sessionElapsed;
-
                 if (currentRemaining <= 0) {
                     endBreak();
                     state.remainingMs = 0;
@@ -382,15 +442,12 @@
 
         startBtn.addEventListener('click', startBreak);
         breakOverlay.addEventListener('click', endBreak);
-        document.querySelectorAll('.break-history-list-container, .history-list-container').forEach(el => {
+        document.querySelectorAll('#bottomTray, #breakHistorySection, .history-title, .break-history-title, .history-list-container, .break-history-list-container').forEach(el => {
             el.addEventListener('click', (e) => e.stopPropagation());
         });
 
         function startBreak() {
-            if (state.remainingMs <= 0) {
-                alert("休憩時間を使い切りました");
-                return;
-            }
+            if (state.remainingMs <= 0) { alert("休憩時間を使い切りました"); return; }
             state.isBreak = true;
             state.lastBreakStartTimestamp = Date.now();
             saveState();
@@ -402,7 +459,6 @@
             const now = Date.now();
             const sessionElapsed = now - state.lastBreakStartTimestamp;
             state.remainingMs = Math.max(0, state.remainingMs - sessionElapsed);
-
             const start = new Date(state.lastBreakStartTimestamp);
             const end = new Date(now);
             const item = {
@@ -410,12 +466,10 @@
                 endStr: formatTime(end),
                 durationStr: formatDuration(sessionElapsed)
             };
-
             state.history.push(item);
             state.isBreak = false;
             state.lastBreakStartTimestamp = null;
             saveState();
-
             updateAllTimerDisplays(state.remainingMs);
             showWorkingMode();
             renderHistory();
@@ -431,6 +485,18 @@
             breakOverlay.style.display = 'none';
         }
 
+        function toggleHistory() {
+            const tray = document.getElementById('bottomTray');
+            tray.classList.toggle('collapsed');
+            localStorage.setItem('history_collapsed', tray.classList.contains('collapsed'));
+        }
+
+        function toggleBreakHistory() {
+            const section = document.getElementById('breakHistorySection');
+            section.classList.toggle('break-history-collapsed');
+            localStorage.setItem('break_history_collapsed', section.classList.contains('break-history-collapsed'));
+        }
+
         function updateAllTimerDisplays(ms) {
             const str = formatTimer(ms);
             breakTimer.innerText = str;
@@ -439,18 +505,14 @@
 
         function formatTimer(ms) {
             const totalSeconds = Math.ceil(ms / 1000);
-            const m = Math.floor(totalSeconds / 60);
-            const s = totalSeconds % 60;
-            return `${pad(m)}:${pad(s)}`;
+            return `${pad(Math.floor(totalSeconds / 60))}:${pad(totalSeconds % 60)}`;
         }
 
         function pad(n) { return n < 10 ? '0' + n : n; }
         function formatTime(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
         function formatDuration(ms) {
             const sec = Math.floor(ms / 1000);
-            const m = Math.floor(sec / 60);
-            const s = sec % 60;
-            return `${m}分${s}秒`;
+            return `${Math.floor(sec / 60)}分${sec % 60}秒`;
         }
 
         function renderHistory() {
@@ -469,11 +531,8 @@
 
         function loadState() {
             const saved = localStorage.getItem('breakApp_final');
-            if (saved) {
-                state = JSON.parse(saved);
-            } else {
-                state.lastCheckedDate = new Date().toDateString();
-            }
+            if (saved) state = JSON.parse(saved);
+            else state.lastCheckedDate = new Date().toDateString();
         }
 
         emailBtn.addEventListener('click', (e) => {
