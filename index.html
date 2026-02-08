@@ -871,6 +871,38 @@
 
         init();
         document.body.addEventListener('touchstart', function () { }, false);
+document.addEventListener('DOMContentLoaded', function() {
+    const video = document.getElementById('darkSmokeVideo');
+    if (!video) return;
+
+    let fadeDuration = 8;          // ← ここを調整！ フェードにかける秒数（4〜6秒が自然になりやすい）
+
+    video.addEventListener('timeupdate', function() {
+        const duration = video.duration;   // ≈30秒
+        const current = video.currentTime;
+
+        // 最後のfadeDuration秒でフェードアウト
+        if (current > duration - fadeDuration) {
+            const progress = (current - (duration - fadeDuration)) / fadeDuration;
+           video.style.opacity = 1 - Math.pow(progress, 2);  // 2乗で後半がゆっくり薄くなる	
+        }
+        // 最初のfadeDuration秒でフェードイン
+        else if (current < fadeDuration) {
+            const progress = current / fadeDuration;
+            video.style.opacity = Math.pow(progress, 0.5);  // フェードインをゆっくりスタート
+        }
+        else {
+            video.style.opacity = 1;
+        }
+    });
+
+    // endedイベントは保険として残す（ループ属性があるので基本発火しないが）
+    video.addEventListener('ended', function() {
+        video.currentTime = 0;
+        video.play();
+        video.style.opacity = 0;  // 念のため最初透明からスタート
+    });
+});
     </script>
 </body>
 
