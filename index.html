@@ -603,6 +603,7 @@
 
     <script>
         const MAX_TIME_MS = 60 * 60 * 1000;
+        const AUTO_STOP_MS = 7.5 * 60 * 1000; // 7分30秒
 
         let state = {
             remainingMs: MAX_TIME_MS,
@@ -689,6 +690,13 @@
             }
             if (state.isBreak) {
                 const sessionElapsed = now - state.lastBreakStartTimestamp;
+
+                // オートストップ判定 (7分30秒経過)
+                if (sessionElapsed >= AUTO_STOP_MS) {
+                    endBreak(true);
+                    return;
+                }
+
                 const currentRemaining = state.remainingMs - sessionElapsed;
                 updateAllTimerDisplays(currentRemaining);
             }
@@ -712,7 +720,7 @@
             showBreakMode();
         }
 
-        function endBreak() {
+        function endBreak(isAuto = false) {
             if (!state.isBreak) return;
             const now = Date.now();
             const sessionElapsed = now - state.lastBreakStartTimestamp;
@@ -722,7 +730,8 @@
             const item = {
                 startStr: formatTime(start),
                 endStr: formatTime(end),
-                durationStr: formatDuration(sessionElapsed)
+                durationStr: formatDuration(sessionElapsed),
+                isAuto: isAuto
             };
             state.history.push(item);
             state.isBreak = false;
@@ -800,7 +809,8 @@
         function renderHistory() {
             const html = state.history.map(h => `
                 <li class="history-item">
-                    <span>${h.startStr} - ${h.endStr}</span><span>${h.durationStr}</span>
+                    <span>${h.startStr} - ${h.endStr}${h.isAuto ? ' <small style="color:var(--text-color); font-weight:bold; opacity:0.8;">(自動停止)</small>' : ''}</span>
+                    <span>${h.durationStr}</span>
                 </li>
             `).join('');
             workingHistoryList.innerHTML = html;
@@ -820,7 +830,9 @@
         emailBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             let body = "お疲れ様です。\n本日の休憩取得状況をご報告します。\n\n本日の休憩履歴:\n";
-            state.history.forEach(h => { body += `${h.startStr} - ${h.endStr} (${h.durationStr})\n`; });
+            state.history.forEach(h => {
+                body += `${h.startStr} - ${h.endStr} (${h.durationStr})${h.isAuto ? ' [自動停止]' : ''}\n`;
+            });
             body += `\n合計休憩時間: ${formatDuration(MAX_TIME_MS - state.remainingMs)}\n\n明日もよろしくお願いします。`;
             window.location.href = `mailto:?subject=休憩取得状況報告&body=${encodeURIComponent(body)}`;
         });
@@ -854,8 +866,10 @@
 
         function downloadCSV() {
             if (state.history.length === 0) { alert("履歴がありません"); return; }
-            let csvContent = "開始時刻,終了時刻,経過時間\n";
-            state.history.forEach(h => { csvContent += `${h.startStr},${h.endStr},${h.durationStr}\n`; });
+            let csvContent = "開始時刻,終了時刻,経過時間,備考\n";
+            state.history.forEach(h => {
+                csvContent += `${h.startStr},${h.endStr},${h.durationStr},${h.isAuto ? '自動停止' : ''}\n`;
+            });
             const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
             const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
@@ -871,38 +885,38 @@
 
         init();
         document.body.addEventListener('touchstart', function () { }, false);
-document.addEventListener('DOMContentLoaded', function() {
-    const video = document.getElementById('darkSmokeVideo');
-    if (!video) return;
+        document.addEventListener('DOMContentLoaded', function () {
+            const video = document.getElementById('darkSmokeVideo');
+            if (!video) return;
 
-    let fadeDuration = 8;          // ← ここを調整！ フェードにかける秒数（4〜6秒が自然になりやすい）
+            let fadeDuration = 8;          // ← ここを調整！ フェードにかける秒数（4〜6秒が自然になりやすい）
 
-    video.addEventListener('timeupdate', function() {
-        const duration = video.duration;   // ≈30秒
-        const current = video.currentTime;
+            video.addEventListener('timeupdate', function () {
+                const duration = video.duration;   // ≈30秒
+                const current = video.currentTime;
 
-        // 最後のfadeDuration秒でフェードアウト
-        if (current > duration - fadeDuration) {
-            const progress = (current - (duration - fadeDuration)) / fadeDuration;
-           video.style.opacity = 1 - Math.pow(progress, 2);  // 2乗で後半がゆっくり薄くなる	
-        }
-        // 最初のfadeDuration秒でフェードイン
-        else if (current < fadeDuration) {
-            const progress = current / fadeDuration;
-            video.style.opacity = Math.pow(progress, 0.5);  // フェードインをゆっくりスタート
-        }
-        else {
-            video.style.opacity = 1;
-        }
-    });
+                // 最後のfadeDuration秒でフェードアウト
+                if (current > duration - fadeDuration) {
+                    const progress = (current - (duration - fadeDuration)) / fadeDuration;
+                    video.style.opacity = 1 - Math.pow(progress, 2);  // 2乗で後半がゆっくり薄くなる	
+                }
+                // 最初のfadeDuration秒でフェードイン
+                else if (current < fadeDuration) {
+                    const progress = current / fadeDuration;
+                    video.style.opacity = Math.pow(progress, 0.5);  // フェードインをゆっくりスタート
+                }
+                else {
+                    video.style.opacity = 1;
+                }
+            });
 
-    // endedイベントは保険として残す（ループ属性があるので基本発火しないが）
-    video.addEventListener('ended', function() {
-        video.currentTime = 0;
-        video.play();
-        video.style.opacity = 0;  // 念のため最初透明からスタート
-    });
-});
+            // endedイベントは保険として残す（ループ属性があるので基本発火しないが）
+            video.addEventListener('ended', function () {
+                video.currentTime = 0;
+                video.play();
+                video.style.opacity = 0;  // 念のため最初透明からスタート
+            });
+        });
     </script>
 </body>
 
