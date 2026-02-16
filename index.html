@@ -654,6 +654,14 @@
             updateAllTimerDisplays(state.remainingMs);
             renderHistory();
             requestAnimationFrame(tick);
+
+            // バックグラウンド生存率を上げるためのインターバル
+            setInterval(updateLogic, 2000);
+
+            // ページ復帰時に即座にチェック
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') updateLogic();
+            });
         }
 
         function checkDateRollover() {
@@ -682,7 +690,7 @@
         }
 
         let lastSecond = 0;
-        function tick() {
+        function updateLogic() {
             const now = Date.now();
             if (now - lastSecond > 1000) {
                 checkDateRollover();
@@ -700,14 +708,18 @@
                 const currentRemaining = state.remainingMs - sessionElapsed;
                 updateAllTimerDisplays(currentRemaining);
             }
+        }
+
+        function tick() {
+            updateLogic();
             requestAnimationFrame(tick);
         }
 
         startBtn.addEventListener('click', startBreak);
 
         // 休憩終了のトリガーを特定要素に限定
-        document.querySelector('.break-status-text').addEventListener('click', endBreak);
-        document.getElementById('breakTimer').addEventListener('click', endBreak);
+        document.querySelector('.break-status-text').addEventListener('click', () => endBreak(false));
+        document.getElementById('breakTimer').addEventListener('click', () => endBreak(false));
 
         document.querySelectorAll('#bottomTray, #breakHistorySection, .history-title, .break-history-title, .history-list-container, .break-history-list-container, .theme-switch-container').forEach(el => {
             el.addEventListener('click', (e) => e.stopPropagation());
@@ -723,15 +735,22 @@
         function endBreak(isAuto = false) {
             if (!state.isBreak) return;
             const now = Date.now();
-            const sessionElapsed = now - state.lastBreakStartTimestamp;
+            let sessionElapsed = now - state.lastBreakStartTimestamp;
+
+            // オートストップの場合は、たとえバックグラウンドで時間が経過していても
+            // 履歴と計算上は「規定の7分30秒」に丸める
+            if (isAuto === true && sessionElapsed > AUTO_STOP_MS) {
+                sessionElapsed = AUTO_STOP_MS;
+            }
+
             state.remainingMs = state.remainingMs - sessionElapsed;
             const start = new Date(state.lastBreakStartTimestamp);
-            const end = new Date(now);
+            const end = (isAuto === true) ? new Date(state.lastBreakStartTimestamp + sessionElapsed) : new Date(now);
             const item = {
                 startStr: formatTime(start),
                 endStr: formatTime(end),
                 durationStr: formatDuration(sessionElapsed),
-                isAuto: isAuto
+                isAuto: isAuto === true
             };
             state.history.push(item);
             state.isBreak = false;
