@@ -533,6 +533,45 @@
                 bottom: 20px;
             }
         }
+
+        .stoic-link-btn {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 10px;
+            font-size: 0.65rem;
+            font-weight: 500;
+            color: #4a90e2;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            background: none;
+            border: none;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+            letter-spacing: 0.1em;
+            position: relative;
+            z-index: 20;
+            text-transform: none;
+        }
+
+        body.dark-mode .stoic-link-btn {
+            color: #58a6ff;
+        }
+
+        .stoic-link-btn:hover {
+            opacity: 1;
+            background-color: rgba(74, 144, 226, 0.1);
+            color: #4a90e2;
+        }
+
+        body.dark-mode .stoic-link-btn:hover {
+            background-color: rgba(88, 166, 255, 0.1);
+            color: #58a6ff;
+        }
+
+        .stoic-link-btn:active {
+            transform: scale(0.97);
+        }
     </style>
 </head>
 
@@ -592,6 +631,8 @@
         <div class="break-timer-container" style="position: relative; z-index: 10;">
             <div id="breakTimer" class="break-timer-value">60:00</div>
             <div id="overtimeMsg" class="overtime-msg">早く業務に戻りましょう！</div>
+            <a href="https://gemini.google.com/gem/1Igf4jURk-y0V37kh9HrbWcL1liRhoJFm?usp=sharing" target="_blank"
+                class="stoic-link-btn">Moment's notice</a>
         </div>
         <div class="break-history-section" id="breakHistorySection">
             <div class="break-history-title" onclick="toggleBreakHistory()">本日の履歴</div>
