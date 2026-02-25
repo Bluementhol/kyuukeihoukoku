@@ -757,9 +757,15 @@
             requestAnimationFrame(tick);
         }
 
+        startBtn.addEventListener('click', startBreak);
+
         // 休憩終了のトリガーを特定要素に限定
         document.querySelector('.break-status-text').addEventListener('click', () => endBreak(false));
         document.getElementById('breakTimer').addEventListener('click', () => endBreak(false));
+
+        document.querySelectorAll('#bottomTray, #breakHistorySection, .history-title, .break-history-title, .history-list-container, .break-history-list-container, .theme-switch-container').forEach(el => {
+            el.addEventListener('click', (e) => e.stopPropagation());
+        });
 
         async function getCurrentLocation() {
             return new Promise((resolve) => {
@@ -781,9 +787,9 @@
         async function startBreak() {
             state.isBreak = true;
             state.lastBreakStartTimestamp = Date.now();
+            showBreakMode(); // 先に画面を切り替えて反応を良くする
             state.currentStartCoords = await getCurrentLocation();
             saveState();
-            showBreakMode();
         }
 
         async function endBreak(isAuto = false) {
@@ -791,7 +797,10 @@
             const now = Date.now();
             let sessionElapsed = now - state.lastBreakStartTimestamp;
 
-            // 位置情報を取得（オートストップの場合はスキップまたは並行処理）
+            showWorkingMode(); // 先に画面を切り替えて反応を良くする
+
+            // 位置情報を取得（オートストップの場合はスキップ）
+            // 画面は切り替わっているが、バックグラウンドで取得を待つ
             const endCoords = isAuto ? null : await getCurrentLocation();
 
             // オートストップの場合は、たとえバックグラウンドで時間が経過していても
