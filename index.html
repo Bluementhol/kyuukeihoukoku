@@ -649,9 +649,9 @@
         let state = {
             remainingMs: MAX_TIME_MS,
             isBreak: false,
-            lastBreakStartTimestamp: null,
             history: [],
-            lastCheckedDate: ""
+            lastCheckedDate: "",
+            currentStartCoords: null // 追加: 現在の休憩開始時の座標
         };
 
         const workingView = document.getElementById('workingView');
@@ -722,7 +722,8 @@
                 isBreak: false,
                 lastBreakStartTimestamp: null,
                 history: [],
-                lastCheckedDate: newDate
+                lastCheckedDate: newDate,
+                currentStartCoords: null
             };
             saveState();
             updateAllTimerDisplays(state.remainingMs);
@@ -756,27 +757,42 @@
             requestAnimationFrame(tick);
         }
 
-        startBtn.addEventListener('click', startBreak);
-
         // 休憩終了のトリガーを特定要素に限定
         document.querySelector('.break-status-text').addEventListener('click', () => endBreak(false));
         document.getElementById('breakTimer').addEventListener('click', () => endBreak(false));
 
-        document.querySelectorAll('#bottomTray, #breakHistorySection, .history-title, .break-history-title, .history-list-container, .break-history-list-container, .theme-switch-container').forEach(el => {
-            el.addEventListener('click', (e) => e.stopPropagation());
-        });
+        async function getCurrentLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve(null);
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                    (err) => {
+                        console.warn("Geolocation error:", err);
+                        resolve(null);
+                    },
+                    { timeout: 5000, enableHighAccuracy: true }
+                );
+            });
+        }
 
-        function startBreak() {
+        async function startBreak() {
             state.isBreak = true;
             state.lastBreakStartTimestamp = Date.now();
+            state.currentStartCoords = await getCurrentLocation();
             saveState();
             showBreakMode();
         }
 
-        function endBreak(isAuto = false) {
+        async function endBreak(isAuto = false) {
             if (!state.isBreak) return;
             const now = Date.now();
             let sessionElapsed = now - state.lastBreakStartTimestamp;
+
+            // 位置情報を取得（オートストップの場合はスキップまたは並行処理）
+            const endCoords = isAuto ? null : await getCurrentLocation();
 
             // オートストップの場合は、たとえバックグラウンドで時間が経過していても
             // 履歴と計算上は「規定の7分30秒」に丸める
@@ -791,11 +807,14 @@
                 startStr: formatTime(start),
                 endStr: formatTime(end),
                 durationStr: formatDuration(sessionElapsed),
-                isAuto: isAuto === true
+                isAuto: isAuto === true,
+                startCoords: state.currentStartCoords,
+                endCoords: endCoords
             };
             state.history.push(item);
             state.isBreak = false;
             state.lastBreakStartTimestamp = null;
+            state.currentStartCoords = null;
             saveState();
             updateAllTimerDisplays(state.remainingMs);
             showWorkingMode();
@@ -867,9 +886,20 @@
         }
 
         function renderHistory() {
+            const getMapLink = (coords, label) => {
+                if (!coords) return '';
+                return ` <a href="https://www.google.com/maps?q=${coords.lat},${coords.lng}" target="_blank" style="text-decoration:none; font-size:0.7rem; color:var(--yamato-green-light);">[${label}]</a>`;
+            };
+
             const html = state.history.map(h => `
                 <li class="history-item">
-                    <span>${h.startStr} - ${h.endStr}${h.isAuto ? ' <small style="color:var(--text-color); font-weight:bold; opacity:0.8;">(自動停止)</small>' : ''}</span>
+                    <div style="display: flex; flex-direction: column;">
+                        <span>${h.startStr} - ${h.endStr}${h.isAuto ? ' <small style="color:var(--text-color); font-weight:bold; opacity:0.8;">(自動停止)</small>' : ''}</span>
+                        <div style="margin-top: 4px;">
+                            ${getMapLink(h.startCoords, '開始地点')}
+                            ${getMapLink(h.endCoords, '終了地点')}
+                        </div>
+                    </div>
                     <span>${h.durationStr}</span>
                 </li>
             `).join('');
@@ -892,6 +922,8 @@
             let body = "お疲れ様です。\n本日の休憩取得状況をご報告します。\n\n本日の休憩履歴:\n";
             state.history.forEach(h => {
                 body += `${h.startStr} - ${h.endStr} (${h.durationStr})${h.isAuto ? ' [自動停止]' : ''}\n`;
+                if (h.startCoords) body += `  開始地点: https://www.google.com/maps?q=${h.startCoords.lat},${h.startCoords.lng}\n`;
+                if (h.endCoords) body += `  終了地点: https://www.google.com/maps?q=${h.endCoords.lat},${h.endCoords.lng}\n`;
             });
             body += `\n合計休憩時間: ${formatDuration(MAX_TIME_MS - state.remainingMs)}\n\n明日もよろしくお願いします。`;
             window.location.href = `mailto:?subject=休憩取得状況報告&body=${encodeURIComponent(body)}`;
@@ -926,9 +958,13 @@
 
         function downloadCSV() {
             if (state.history.length === 0) { alert("履歴がありません"); return; }
-            let csvContent = "開始時刻,終了時刻,経過時間,備考\n";
+            let csvContent = "開始時刻,終了時刻,経過時間,備考,開始緯度,開始経度,終了緯度,終了経度\n";
             state.history.forEach(h => {
-                csvContent += `${h.startStr},${h.endStr},${h.durationStr},${h.isAuto ? '自動停止' : ''}\n`;
+                const sLat = h.startCoords ? h.startCoords.lat : "";
+                const sLng = h.startCoords ? h.startCoords.lng : "";
+                const eLat = h.endCoords ? h.endCoords.lat : "";
+                const eLng = h.endCoords ? h.endCoords.lng : "";
+                csvContent += `${h.startStr},${h.endStr},${h.durationStr},${h.isAuto ? '自動停止' : ''},${sLat},${sLng},${eLat},${eLng}\n`;
             });
             const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
             const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
