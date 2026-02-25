@@ -799,9 +799,9 @@
 
             showWorkingMode(); // 先に画面を切り替えて反応を良くする
 
-            // 位置情報を取得（オートストップの場合はスキップ）
+            // 位置情報を取得（オートストップの場合も含む）
             // 画面は切り替わっているが、バックグラウンドで取得を待つ
-            const endCoords = isAuto ? null : await getCurrentLocation();
+            const endCoords = await getCurrentLocation();
 
             // オートストップの場合は、たとえバックグラウンドで時間が経過していても
             // 履歴と計算上は「規定の7分30秒」に丸める
@@ -894,24 +894,35 @@
             return `${Math.floor(sec / 60)}分${sec % 60}秒`;
         }
 
+        function getMidpoint(c1, c2) {
+            if (!c1 && !c2) return null;
+            if (c1 && !c2) return c1;
+            if (!c1 && c2) return c2;
+            return {
+                lat: (c1.lat + c2.lat) / 2,
+                lng: (c1.lng + c2.lng) / 2
+            };
+        }
+
         function renderHistory() {
             const getMapLink = (coords, label) => {
                 if (!coords) return '';
                 return ` <a href="https://www.google.com/maps?q=${coords.lat},${coords.lng}" target="_blank" style="text-decoration:none; font-size:0.7rem; color:var(--yamato-green-light);">[${label}]</a>`;
             };
 
-            const html = state.history.map(h => `
+            const html = state.history.map(h => {
+                const mid = getMidpoint(h.startCoords, h.endCoords);
+                return `
                 <li class="history-item">
                     <div style="display: flex; flex-direction: column;">
                         <span>${h.startStr} - ${h.endStr}${h.isAuto ? ' <small style="color:var(--text-color); font-weight:bold; opacity:0.8;">(自動停止)</small>' : ''}</span>
                         <div style="margin-top: 4px;">
-                            ${getMapLink(h.startCoords, '開始地点')}
-                            ${getMapLink(h.endCoords, '終了地点')}
+                            ${getMapLink(mid, '休憩地点')}
                         </div>
                     </div>
                     <span>${h.durationStr}</span>
                 </li>
-            `).join('');
+            `}).join('');
             workingHistoryList.innerHTML = html;
             breakHistoryList.innerHTML = html;
         }
@@ -931,8 +942,8 @@
             let body = "お疲れ様です。\n本日の休憩取得状況をご報告します。\n\n本日の休憩履歴:\n";
             state.history.forEach(h => {
                 body += `${h.startStr} - ${h.endStr} (${h.durationStr})${h.isAuto ? ' [自動停止]' : ''}\n`;
-                if (h.startCoords) body += `  開始地点: https://www.google.com/maps?q=${h.startCoords.lat},${h.startCoords.lng}\n`;
-                if (h.endCoords) body += `  終了地点: https://www.google.com/maps?q=${h.endCoords.lat},${h.endCoords.lng}\n`;
+                const mid = getMidpoint(h.startCoords, h.endCoords);
+                if (mid) body += `  休憩地点: https://www.google.com/maps?q=${mid.lat},${mid.lng}\n`;
             });
             body += `\n合計休憩時間: ${formatDuration(MAX_TIME_MS - state.remainingMs)}\n\n明日もよろしくお願いします。`;
             window.location.href = `mailto:?subject=休憩取得状況報告&body=${encodeURIComponent(body)}`;
