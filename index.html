@@ -648,7 +648,7 @@
 
         let state = {
             remainingMs: MAX_TIME_MS,
-            isBreak: false,
+            lastBreakStartTimestamp: null, // 追加
             history: [],
             lastCheckedDate: "",
             currentStartCoords: null // 追加: 現在の休憩開始時の座標
@@ -708,8 +708,11 @@
         function checkDateRollover() {
             const today = new Date().toDateString();
             if (state.lastCheckedDate && state.lastCheckedDate !== today) {
-                if (state.isBreak) endBreak();
-                resetToNewDay(today);
+                if (state.isBreak) {
+                    endBreak().then(() => resetToNewDay(today));
+                } else {
+                    resetToNewDay(today);
+                }
             } else {
                 state.lastCheckedDate = today;
                 saveState();
@@ -743,7 +746,10 @@
 
                 // オートストップ判定 (7分30秒経過)
                 if (sessionElapsed >= AUTO_STOP_MS) {
-                    endBreak(true);
+                    // endBreakが進行中でないことを確認（重複呼び出し防止）
+                    if (state.isBreak) {
+                        endBreak(true);
+                    }
                     return;
                 }
 
@@ -760,8 +766,12 @@
         startBtn.addEventListener('click', startBreak);
 
         // 休憩終了のトリガーを特定要素に限定
-        document.querySelector('.break-status-text').addEventListener('click', () => endBreak(false));
-        document.getElementById('breakTimer').addEventListener('click', () => endBreak(false));
+        document.querySelector('.break-status-text').addEventListener('click', () => {
+            if (state.isBreak) endBreak(false);
+        });
+        document.getElementById('breakTimer').addEventListener('click', () => {
+            if (state.isBreak) endBreak(false);
+        });
 
         document.querySelectorAll('#bottomTray, #breakHistorySection, .history-title, .break-history-title, .history-list-container, .break-history-list-container, .theme-switch-container').forEach(el => {
             el.addEventListener('click', (e) => e.stopPropagation());
@@ -794,8 +804,17 @@
 
         async function endBreak(isAuto = false) {
             if (!state.isBreak) return;
+
+            // 重要：重複実行を防ぐため、即座にフラグを落とす
+            state.isBreak = false;
+
+            // 必要なデータをキャプチャ（非同期処理中にstateがリセットされる可能性に備える）
+            const startTimestamp = state.lastBreakStartTimestamp;
+            const startCoords = state.currentStartCoords;
+            const remainingAtStart = state.remainingMs;
+
             const now = Date.now();
-            let sessionElapsed = now - state.lastBreakStartTimestamp;
+            let sessionElapsed = now - startTimestamp;
 
             showWorkingMode(); // 先に画面を切り替えて反応を良くする
 
@@ -809,24 +828,25 @@
                 sessionElapsed = AUTO_STOP_MS;
             }
 
-            state.remainingMs = state.remainingMs - sessionElapsed;
-            const start = new Date(state.lastBreakStartTimestamp);
-            const end = (isAuto === true) ? new Date(state.lastBreakStartTimestamp + sessionElapsed) : new Date(now);
+            // キャプチャした値を元に計算
+            state.remainingMs = remainingAtStart - sessionElapsed;
+            const start = new Date(startTimestamp);
+            const end = (isAuto === true) ? new Date(startTimestamp + sessionElapsed) : new Date(now);
+
             const item = {
                 startStr: formatTime(start),
                 endStr: formatTime(end),
                 durationStr: formatDuration(sessionElapsed),
                 isAuto: isAuto === true,
-                startCoords: state.currentStartCoords,
+                startCoords: startCoords,
                 endCoords: endCoords
             };
             state.history.push(item);
-            state.isBreak = false;
+
             state.lastBreakStartTimestamp = null;
             state.currentStartCoords = null;
             saveState();
             updateAllTimerDisplays(state.remainingMs);
-            showWorkingMode();
             renderHistory();
         }
 
