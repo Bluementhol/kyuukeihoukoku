@@ -6,6 +6,10 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>休憩管理</title>
+    <!-- Google Fonts: Yuji Syuku -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap" rel="stylesheet">
     <style>
         :root {
             --yamato-green: #00693E;
@@ -537,9 +541,9 @@
         .stoic-link-btn {
             display: inline-block;
             margin-top: 8px;
-            padding: 4px 10px;
-            font-size: 0.65rem;
+            font-size: 0.9rem;
             font-weight: 500;
+            font-family: 'Yuji Syuku', serif;
             color: #4a90e2;
             text-decoration: underline;
             text-underline-offset: 3px;
@@ -547,8 +551,8 @@
             border: none;
             border-radius: 4px;
             transition: all 0.3s ease;
-            opacity: 0.5;
-            letter-spacing: 0.1em;
+            opacity: 0.7;
+            letter-spacing: 0.2em;
             position: relative;
             z-index: 20;
             text-transform: none;
@@ -632,7 +636,7 @@
             <div id="breakTimer" class="break-timer-value">60:00</div>
             <div id="overtimeMsg" class="overtime-msg">早く業務に戻りましょう！</div>
             <a href="https://gemini.google.com/gem/1vt4jRGbTJAKzz2KRLWI6S_9vox56CWOj?usp=sharing" target="_blank"
-                class="stoic-link-btn">Moment's notice</a>
+                class="stoic-link-btn">理論武装</a>
         </div>
         <div class="break-history-section" id="breakHistorySection">
             <div class="break-history-title" onclick="toggleBreakHistory()">本日の履歴</div>
