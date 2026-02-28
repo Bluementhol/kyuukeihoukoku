@@ -541,7 +541,7 @@
         .stoic-link-btn {
             display: inline-block;
             margin-top: 8px;
-            font-size: 0.9rem;
+            font-size: 0.6rem;
             font-weight: 500;
             font-family: 'Zen Maru Gothic', sans-serif;
             color: #4a90e2;
@@ -635,7 +635,7 @@
         <div class="break-timer-container" style="position: relative; z-index: 10;">
             <div id="breakTimer" class="break-timer-value">60:00</div>
             <div id="overtimeMsg" class="overtime-msg">早く業務に戻りましょう！</div>
-            <a href="https://gemini.google.com/gem/1vt4jRGbTJAKzz2KRLWI6S_9vox56CWOj?usp=sharing" target="_blank"
+            <a href="https://gemini.google.com/gem/1vt4jRGbTJAKzz2KRLWI6S_9vox56CWOj?usp=sharing" target="_parent"
                 class="stoic-link-btn">理論武装する</a>
         </div>
         <div class="break-history-section" id="breakHistorySection">
@@ -1025,7 +1025,9 @@
 
         init();
         document.body.addEventListener('touchstart', function () { }, false);
-        document.addEventListener('DOMContentLoaded', function () {
+
+        // DOMContentLoadedを使わず即時実行（スクリプトはbody末尾にあるためDOM構築済み）
+        (function () {
             const video = document.getElementById('darkSmokeVideo');
             if (!video) return;
 
@@ -1056,7 +1058,7 @@
                 video.play();
                 video.style.opacity = 0;  // 念のため最初透明からスタート
             });
-        });
+        })();
     </script>
 </body>
 
