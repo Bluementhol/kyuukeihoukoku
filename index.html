@@ -838,6 +838,7 @@
             const end = (isAuto === true) ? new Date(startTimestamp + sessionElapsed) : new Date(now);
 
             const item = {
+                startTime: startTimestamp, // ソート用に追加
                 startStr: formatTime(start),
                 endStr: formatTime(end),
                 durationStr: formatDuration(sessionElapsed),
@@ -934,7 +935,15 @@
                 return ` <a href="https://www.google.com/maps?q=${coords.lat},${coords.lng}" target="_blank" style="text-decoration:none; font-size:0.7rem; color:var(--yamato-green-light);">[${label}]</a>`;
             };
 
-            const html = state.history.map(h => {
+            // startTime で降順にソート（新しいものが上）
+            // 既存の古いデータ（startTimeがないもの）は後ろに行くように考慮
+            const sortedHistory = [...state.history].sort((a, b) => {
+                const timeA = a.startTime || 0;
+                const timeB = b.startTime || 0;
+                return timeB - timeA;
+            });
+
+            const html = sortedHistory.map(h => {
                 const mid = getMidpoint(h.startCoords, h.endCoords);
                 return `
                 <li class="history-item">
