@@ -652,10 +652,12 @@
 
         let state = {
             remainingMs: MAX_TIME_MS,
-            lastBreakStartTimestamp: null, // 追加
+            isBreak: false,
+            lastBreakStartTimestamp: null,
             history: [],
             lastCheckedDate: "",
-            currentStartCoords: null // 追加: 現在の休憩開始時の座標
+            currentStartCoords: null,
+            isProcessing: false // 追加: 二重動作防止用
         };
 
         const workingView = document.getElementById('workingView');
@@ -746,12 +748,21 @@
                 lastSecond = now;
             }
             if (state.isBreak) {
+                // 整合性チェック: 休憩中フラグがあるのに開始時間が不明な場合
+                if (!state.lastBreakStartTimestamp) {
+                    console.error("State inconsistency detected: isBreak is true but lastBreakStartTimestamp is null. Forcing endBreak.");
+                    state.isBreak = false;
+                    saveState();
+                    showWorkingMode();
+                    return;
+                }
+
                 const sessionElapsed = now - state.lastBreakStartTimestamp;
 
                 // オートストップ判定 (7分30秒経過)
                 if (sessionElapsed >= AUTO_STOP_MS) {
                     // endBreakが進行中でないことを確認（重複呼び出し防止）
-                    if (state.isBreak) {
+                    if (state.isBreak && !state.isProcessing) {
                         endBreak(true);
                     }
                     return;
@@ -799,23 +810,33 @@
         }
 
         async function startBreak() {
+            if (state.isProcessing || state.isBreak) return;
+            state.isProcessing = true;
+
             state.isBreak = true;
             state.lastBreakStartTimestamp = Date.now();
+            saveState(); // 即座に保存してページ更新に備える
+
             showBreakMode(); // 先に画面を切り替えて反応を良くする
             state.currentStartCoords = await getCurrentLocation();
+
+            state.isProcessing = false;
             saveState();
         }
 
         async function endBreak(isAuto = false) {
-            if (!state.isBreak) return;
+            if (!state.isBreak || state.isProcessing) return;
+            state.isProcessing = true;
 
-            // 重要：重複実行を防ぐため、即座にフラグを落とす
+            // 重要：重複実行を防ぐため、即座にフラグを落として保存
             state.isBreak = false;
 
-            // 必要なデータをキャプチャ（非同期処理中にstateがリセットされる可能性に備える）
+            // 必要なデータをキャプチャ
             const startTimestamp = state.lastBreakStartTimestamp;
             const startCoords = state.currentStartCoords;
             const remainingAtStart = state.remainingMs;
+
+            saveState(); // この時点で中断されても、09:00エントリが作られることはなくなる
 
             const now = Date.now();
             let sessionElapsed = now - startTimestamp;
@@ -823,11 +844,9 @@
             showWorkingMode(); // 先に画面を切り替えて反応を良くする
 
             // 位置情報を取得（オートストップの場合も含む）
-            // 画面は切り替わっているが、バックグラウンドで取得を待つ
             const endCoords = await getCurrentLocation();
 
-            // オートストップの場合は、たとえバックグラウンドで時間が経過していても
-            // 履歴と計算上は「規定の7分30秒」に丸める
+            // オートストップの場合は、規定の7分30秒に丸める
             if (isAuto === true && sessionElapsed > AUTO_STOP_MS) {
                 sessionElapsed = AUTO_STOP_MS;
             }
@@ -838,7 +857,7 @@
             const end = (isAuto === true) ? new Date(startTimestamp + sessionElapsed) : new Date(now);
 
             const item = {
-                startTime: startTimestamp, // ソート用に追加
+                startTime: startTimestamp,
                 startStr: formatTime(start),
                 endStr: formatTime(end),
                 durationStr: formatDuration(sessionElapsed),
@@ -850,6 +869,7 @@
 
             state.lastBreakStartTimestamp = null;
             state.currentStartCoords = null;
+            state.isProcessing = false;
             saveState();
             updateAllTimerDisplays(state.remainingMs);
             renderHistory();
@@ -966,8 +986,23 @@
 
         function loadState() {
             const saved = localStorage.getItem('breakApp_final');
-            if (saved) state = JSON.parse(saved);
-            else state.lastCheckedDate = new Date().toDateString();
+            const defaultState = {
+                remainingMs: MAX_TIME_MS,
+                isBreak: false,
+                lastBreakStartTimestamp: null,
+                history: [],
+                lastCheckedDate: new Date().toDateString(),
+                currentStartCoords: null,
+                isProcessing: false
+            };
+
+            if (saved) {
+                const loaded = JSON.parse(saved);
+                // defaultStateをベースにloadedでマージすることで、新設されたプロパティの欠落を防ぐ
+                state = { ...defaultState, ...loaded, isProcessing: false }; // aProcessingはロード時に必ずreset
+            } else {
+                state = defaultState;
+            }
         }
 
         emailBtn.addEventListener('click', (e) => {
