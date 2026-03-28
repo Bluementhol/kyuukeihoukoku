@@ -1007,7 +1007,15 @@
 
         emailBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            let body = "お疲れ様です。\n本日の休憩取得状況をご報告します。\n\n本日の休憩履歴:\n";
+            let breakDate = new Date();
+            if (state.history.length > 0) {
+                const firstBreak = [...state.history].sort((a, b) => (a.startTime || 0) - (b.startTime || 0))[0];
+                if (firstBreak && firstBreak.startTime) {
+                    breakDate = new Date(firstBreak.startTime);
+                }
+            }
+            const dateStr = `（${breakDate.getMonth() + 1}月${breakDate.getDate()}日）`;
+            let body = `お疲れ様です。\n本日${dateStr}の休憩取得状況をご報告します。\n\n本日の休憩履歴:\n`;
             state.history.forEach(h => {
                 body += `${h.startStr} - ${h.endStr} (${h.durationStr})${h.isAuto ? ' [自動停止]' : ''}\n`;
                 const mid = getMidpoint(h.startCoords, h.endCoords);
