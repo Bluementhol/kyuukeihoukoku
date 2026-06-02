@@ -656,7 +656,6 @@
             lastBreakStartTimestamp: null,
             history: [],
             lastCheckedDate: "",
-            currentStartCoords: null,
             isProcessing: false // 追加: 二重動作防止用
         };
 
@@ -731,8 +730,7 @@
                 isBreak: false,
                 lastBreakStartTimestamp: null,
                 history: [],
-                lastCheckedDate: newDate,
-                currentStartCoords: null
+                lastCheckedDate: newDate
             };
             saveState();
             updateAllTimerDisplays(state.remainingMs);
@@ -792,24 +790,8 @@
             el.addEventListener('click', (e) => e.stopPropagation());
         });
 
-        async function getCurrentLocation() {
-            return new Promise((resolve) => {
-                if (!navigator.geolocation) {
-                    resolve(null);
-                    return;
-                }
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                    (err) => {
-                        console.warn("Geolocation error:", err);
-                        resolve(null);
-                    },
-                    { timeout: 5000, enableHighAccuracy: true }
-                );
-            });
-        }
 
-        async function startBreak() {
+        function startBreak() {
             if (state.isProcessing || state.isBreak) return;
             state.isProcessing = true;
 
@@ -818,13 +800,12 @@
             saveState(); // 即座に保存してページ更新に備える
 
             showBreakMode(); // 先に画面を切り替えて反応を良くする
-            state.currentStartCoords = await getCurrentLocation();
 
             state.isProcessing = false;
             saveState();
         }
 
-        async function endBreak(isAuto = false) {
+        function endBreak(isAuto = false) {
             if (!state.isBreak || state.isProcessing) return;
             state.isProcessing = true;
 
@@ -833,7 +814,6 @@
 
             // 必要なデータをキャプチャ
             const startTimestamp = state.lastBreakStartTimestamp;
-            const startCoords = state.currentStartCoords;
             const remainingAtStart = state.remainingMs;
 
             saveState(); // この時点で中断されても、09:00エントリが作られることはなくなる
@@ -842,9 +822,6 @@
             let sessionElapsed = now - startTimestamp;
 
             showWorkingMode(); // 先に画面を切り替えて反応を良くする
-
-            // 位置情報を取得（オートストップの場合も含む）
-            const endCoords = await getCurrentLocation();
 
             // オートストップの場合は、規定の7分30秒に丸める
             if (isAuto === true && sessionElapsed > AUTO_STOP_MS) {
@@ -861,14 +838,11 @@
                 startStr: formatTime(start),
                 endStr: formatTime(end),
                 durationStr: formatDuration(sessionElapsed),
-                isAuto: isAuto === true,
-                startCoords: startCoords,
-                endCoords: endCoords
+                isAuto: isAuto === true
             };
             state.history.push(item);
 
             state.lastBreakStartTimestamp = null;
-            state.currentStartCoords = null;
             state.isProcessing = false;
             saveState();
             updateAllTimerDisplays(state.remainingMs);
@@ -939,22 +913,7 @@
             return `${Math.floor(sec / 60)}分${sec % 60}秒`;
         }
 
-        function getMidpoint(c1, c2) {
-            if (!c1 && !c2) return null;
-            if (c1 && !c2) return c1;
-            if (!c1 && c2) return c2;
-            return {
-                lat: (c1.lat + c2.lat) / 2,
-                lng: (c1.lng + c2.lng) / 2
-            };
-        }
-
         function renderHistory() {
-            const getMapLink = (coords, label) => {
-                if (!coords) return '';
-                return ` <a href="https://www.google.com/maps?q=${coords.lat},${coords.lng}" target="_blank" style="text-decoration:none; font-size:0.7rem; color:var(--yamato-green-light);">[${label}]</a>`;
-            };
-
             // startTime で降順にソート（新しいものが上）
             // 既存の古いデータ（startTimeがないもの）は後ろに行くように考慮
             const sortedHistory = [...state.history].sort((a, b) => {
@@ -964,14 +923,10 @@
             });
 
             const html = sortedHistory.map(h => {
-                const mid = getMidpoint(h.startCoords, h.endCoords);
                 return `
                 <li class="history-item">
                     <div style="display: flex; flex-direction: column;">
                         <span>${h.startStr} - ${h.endStr}${h.isAuto ? ' <small style="color:var(--text-color); font-weight:bold; opacity:0.8;">(自動停止)</small>' : ''}</span>
-                        <div style="margin-top: 4px;">
-                            ${getMapLink(mid, '休憩地点')}
-                        </div>
                     </div>
                     <span>${h.durationStr}</span>
                 </li>
@@ -992,7 +947,6 @@
                 lastBreakStartTimestamp: null,
                 history: [],
                 lastCheckedDate: new Date().toDateString(),
-                currentStartCoords: null,
                 isProcessing: false
             };
 
@@ -1018,8 +972,6 @@
             let body = `お疲れ様です。\n本日${dateStr}の休憩取得状況をご報告します。\n\n本日の休憩履歴:\n`;
             state.history.forEach(h => {
                 body += `${h.startStr} - ${h.endStr} (${h.durationStr})${h.isAuto ? ' [自動停止]' : ''}\n`;
-                const mid = getMidpoint(h.startCoords, h.endCoords);
-                if (mid) body += `  休憩地点: https://www.google.com/maps?q=${mid.lat},${mid.lng}\n`;
             });
             body += `\n合計休憩時間: ${formatDuration(MAX_TIME_MS - state.remainingMs)}\n\n明日もよろしくお願いします。`;
             window.location.href = `mailto:?subject=休憩取得状況報告&body=${encodeURIComponent(body)}`;
@@ -1054,13 +1006,9 @@
 
         function downloadCSV() {
             if (state.history.length === 0) { alert("履歴がありません"); return; }
-            let csvContent = "開始時刻,終了時刻,経過時間,備考,開始緯度,開始経度,終了緯度,終了経度\n";
+            let csvContent = "開始時刻,終了時刻,経過時間,備考\n";
             state.history.forEach(h => {
-                const sLat = h.startCoords ? h.startCoords.lat : "";
-                const sLng = h.startCoords ? h.startCoords.lng : "";
-                const eLat = h.endCoords ? h.endCoords.lat : "";
-                const eLng = h.endCoords ? h.endCoords.lng : "";
-                csvContent += `${h.startStr},${h.endStr},${h.durationStr},${h.isAuto ? '自動停止' : ''},${sLat},${sLng},${eLat},${eLng}\n`;
+                csvContent += `${h.startStr},${h.endStr},${h.durationStr},${h.isAuto ? '自動停止' : ''}\n`;
             });
             const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
             const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
