@@ -714,10 +714,9 @@
             const today = new Date().toDateString();
             if (state.lastCheckedDate && state.lastCheckedDate !== today) {
                 if (state.isBreak) {
-                    endBreak().then(() => resetToNewDay(today));
-                } else {
-                    resetToNewDay(today);
+                    endBreak();
                 }
+                resetToNewDay(today);
             } else {
                 state.lastCheckedDate = today;
                 saveState();
